@@ -14,17 +14,14 @@ from libcxx.sym_check import util
 
 
 def _symbol_difference(lhs, rhs):
-    lhs_names = set(((n['name'], n['type']) for n in lhs))
-    rhs_names = set(((n['name'], n['type']) for n in rhs))
+    lhs_names = {(n['name'], n['type']) for n in lhs}
+    rhs_names = {(n['name'], n['type']) for n in rhs}
     diff_names = lhs_names - rhs_names
     return [n for n in lhs if (n['name'], n['type']) in diff_names]
 
 
 def _find_by_key(sym_list, k):
-    for sym in sym_list:
-        if sym['name'] == k:
-            return sym
-    return None
+    return next((sym for sym in sym_list if sym['name'] == k), None)
 
 
 def added_symbols(old, new):
@@ -41,8 +38,7 @@ def changed_symbols(old, new):
         if old_sym in new:
             continue
         new_sym = _find_by_key(new, old_sym['name'])
-        if (new_sym is not None and not new_sym in old
-                and old_sym != new_sym):
+        if new_sym is not None and new_sym not in old and old_sym != new_sym:
             changed += [(old_sym, new_sym)]
     return changed
 
@@ -81,7 +77,7 @@ def report_diff(added_syms, removed_syms, changed_syms, names_only=False,
                        (maybe_demangle(old_sym['name']),
                         old_str, new_str))
 
-    added = bool(len(added_syms) != 0)
+    added = len(added_syms) != 0
     abi_break = bool(len(removed_syms))
     if not names_only:
         abi_break = abi_break or len(changed_syms)
@@ -91,10 +87,11 @@ def report_diff(added_syms, removed_syms, changed_syms, names_only=False,
         report += '    Removed: %d\n' % len(removed_syms)
         if not names_only:
             report += '    Changed: %d\n' % len(changed_syms)
-        if not abi_break:
-            report += 'Symbols added.'
-        else:
-            report += 'ABI BREAKAGE: SYMBOLS ADDED OR REMOVED!'
+        report += (
+            'ABI BREAKAGE: SYMBOLS ADDED OR REMOVED!'
+            if abi_break
+            else 'Symbols added.'
+        )
     else:
         report += 'Symbols match.'
     is_different = abi_break or bool(len(added_syms)) \

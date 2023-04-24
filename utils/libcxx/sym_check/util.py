@@ -43,16 +43,13 @@ def write_syms(sym_list, out=None, names_only=False, filter=None):
     """
     Write a list of symbols to the file named by out.
     """
-    out_str = ''
     out_list = sym_list
     out_list.sort(key=lambda x: x['name'])
     if filter is not None:
         out_list = filter(out_list)
     if names_only:
         out_list = [sym['name'] for sym in out_list]
-    for sym in out_list:
-        # Use pformat for consistent ordering of keys.
-        out_str += pformat(sym, width=100000) + '\n'
+    out_str = ''.join(pformat(sym, width=100000) + '\n' for sym in out_list)
     if out is None:
         sys.stdout.write(out_str)
     else:
@@ -68,9 +65,7 @@ def demangle_symbol(symbol):
         return symbol
     out, _, exit_code = libcxx.util.executeCommandVerbose(
         [_cppfilt_exe], input=symbol)
-    if exit_code != 0:
-        return symbol
-    return out
+    return symbol if exit_code != 0 else out
 
 
 def is_elf(filename):
@@ -93,10 +88,7 @@ def is_mach_o(filename):
 
 
 def is_library_file(filename):
-    if sys.platform == 'darwin':
-        return is_mach_o(filename)
-    else:
-        return is_elf(filename)
+    return is_mach_o(filename) if sys.platform == 'darwin' else is_elf(filename)
 
 
 def extract_or_load(filename):
@@ -106,9 +98,7 @@ def extract_or_load(filename):
     return read_syms_from_file(filename)
 
 def adjust_mangled_name(name):
-    if not name.startswith('__Z'):
-        return name
-    return name[1:]
+    return name[1:] if name.startswith('__Z') else name
 
 new_delete_std_symbols = [
     '_Znam',
@@ -253,11 +243,7 @@ def is_stdlib_symbol_name(name, sym):
         return True
     if name in new_delete_std_symbols:
         return True
-    if name in cxxabi_symbols:
-        return True
-    if name.startswith('_Z'):
-        return True
-    return False
+    return True if name in cxxabi_symbols else bool(name.startswith('_Z'))
 
 def filter_stdlib_symbols(syms):
     stdlib_symbols = []

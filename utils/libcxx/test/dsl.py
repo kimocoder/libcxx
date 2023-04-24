@@ -15,11 +15,12 @@ import subprocess
 import tempfile
 
 def _memoize(f):
-  cache = dict()
+  cache = {}
   def memoized(x):
     if x not in cache:
       cache[x] = f(x)
     return cache[x]
+
   return memoized
 
 @_memoize
@@ -101,7 +102,7 @@ def compilerMacros(config, flags=''):
     command = "%{{cxx}} -xc++ {} -dM -E %{{flags}} %{{compile_flags}} {}".format(os.devnull, flags)
     command = libcxx.test.newformat.parseScript(test, preamble=[command], fileDependencies=[])[0]
     unparsed = _subprocess_check_output(command)
-    parsedMacros = dict()
+    parsedMacros = {}
     for line in filter(None, map(str.strip, unparsed.split('\n'))):
       assert line.startswith('#define ')
       line = line[len('#define '):]
@@ -182,10 +183,12 @@ class Feature(object):
     It is an error to call `f.enableIn(cfg)` if the feature `f` is not
     supported in that TestingConfig (i.e. if `not f.isSupported(cfg)`).
     """
-    assert self.isSupported(config), \
-      "Trying to enable feature {} that is not supported in the given configuration".format(self._name)
+    assert self.isSupported(
+        config
+    ), f"Trying to enable feature {self._name} that is not supported in the given configuration"
 
-    addTo = lambda subs, sub, flag: [(s, x + ' ' + flag) if s == sub else (s, x) for (s, x) in subs]
+    addTo = lambda subs, sub, flag: [(s, f'{x} {flag}') if s == sub else (s, x)
+                                     for (s, x) in subs]
     if self._compileFlag:
       config.substitutions = addTo(config.substitutions, '%{compile_flags}', self._compileFlag)
     if self._linkFlag:
@@ -210,7 +213,7 @@ def _str_to_bool(s):
   elif lower in falseVals:
     return False
   else:
-    raise ValueError("Got string '{}', which isn't a valid boolean".format(s))
+    raise ValueError(f"Got string '{s}', which isn't a valid boolean")
 
 
 class Parameter(object):
@@ -280,8 +283,9 @@ class Parameter(object):
       raise ValueError("Parameter name must not be the empty string")
 
     self._choices = list(choices) # should be finite
-    if len(self._choices) == 0:
-      raise ValueError("Parameter '{}' must be given at least one possible value".format(self._name))
+    if not self._choices:
+      raise ValueError(
+          f"Parameter '{self._name}' must be given at least one possible value")
 
     self._parse = lambda x: (_str_to_bool(x) if type is bool and isinstance(x, str)
                                              else type(x))
@@ -302,9 +306,13 @@ class Parameter(object):
   def getFeature(self, config, litParams):
     param = litParams.get(self.name, None)
     if param is None and self._default is None:
-      raise ValueError("Parameter {} doesn't have a default value, but it was not specified in the Lit parameters".format(self.name))
+      raise ValueError(
+          f"Parameter {self.name} doesn't have a default value, but it was not specified in the Lit parameters"
+      )
     getDefault = lambda: self._default(config) if callable(self._default) else self._default
     value = self._parse(param) if param is not None else getDefault()
     if value not in self._choices:
-      raise ValueError("Got value '{}' for parameter '{}', which is not in the provided set of possible choices: {}".format(value, self.name, self._choices))
+      raise ValueError(
+          f"Got value '{value}' for parameter '{self.name}', which is not in the provided set of possible choices: {self._choices}"
+      )
     return self._feature(value)

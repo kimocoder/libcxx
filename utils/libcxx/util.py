@@ -20,21 +20,15 @@ import threading
 # FIXME: Most of these functions are cribbed from LIT
 def to_bytes(str):
     # Encode to UTF-8 to get binary data.
-    if isinstance(str, bytes):
-        return str
-    return str.encode('utf-8')
+    return str if isinstance(str, bytes) else str.encode('utf-8')
 
 def to_string(bytes):
-    if isinstance(bytes, str):
-        return bytes
-    return to_bytes(bytes)
+    return bytes if isinstance(bytes, str) else to_bytes(bytes)
 
 def convert_string(bytes):
     try:
         return to_string(bytes.decode('utf-8'))
-    except AttributeError: # 'str' object has no attribute 'decode'.
-        return str(bytes)
-    except UnicodeError:
+    except (AttributeError, UnicodeError): # 'str' object has no attribute 'decode'.
         return str(bytes)
 
 
@@ -91,9 +85,9 @@ def capture(args, env=None):
     out = convert_string(out)
     err = convert_string(err)
     if p.returncode != 0:
-        raise subprocess.CalledProcessError(cmd=args,
-                                            returncode=p.returncode,
-                                            output="{}\n{}".format(out, err))
+        raise subprocess.CalledProcessError(
+            cmd=args, returncode=p.returncode, output=f"{out}\n{err}"
+        )
     return out
 
 
@@ -130,17 +124,18 @@ def which(command, paths = None):
 
 
 def checkToolsPath(dir, tools):
-    for tool in tools:
-        if not os.path.exists(os.path.join(dir, tool)):
-            return False
-    return True
+    return all(os.path.exists(os.path.join(dir, tool)) for tool in tools)
 
 
 def whichTools(tools, paths):
-    for path in paths.split(os.pathsep):
-        if checkToolsPath(path, tools):
-            return path
-    return None
+    return next(
+        (
+            path
+            for path in paths.split(os.pathsep)
+            if checkToolsPath(path, tools)
+        ),
+        None,
+    )
 
 def mkdir_p(path):
     """mkdir_p(path) - Make the "path" directory, if it does not exist; this
@@ -174,7 +169,7 @@ class ExecuteCommandTimeoutException(Exception):
 
 # Close extra file handles on UNIX (on Windows this cannot be done while
 # also redirecting input).
-kUseCloseFDs = not (platform.system() == 'Windows')
+kUseCloseFDs = platform.system() != 'Windows'
 def executeCommand(command, cwd=None, env=None, input=None, timeout=0):
     """
         Execute command ``command`` (list of arguments or string)
@@ -254,7 +249,7 @@ def killProcessAndChildren(pid):
           remove our dependency on it.
     """
     if platform.system() == 'AIX':
-        subprocess.call('kill -kill $(ps -o pid= -L{})'.format(pid), shell=True)
+        subprocess.call(f'kill -kill $(ps -o pid= -L{pid})', shell=True)
     else:
         import psutil
         try:

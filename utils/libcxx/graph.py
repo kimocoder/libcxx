@@ -22,16 +22,14 @@ class DotEmitter(object):
   def addNode(self, node):
     res = str(node.id)
     if len(node.attributes):
-      attr_strs = []
-      for k,v in node.attributes.iteritems():
-        attr_strs += ['%s="%s"' % (k, v)]
-      res += ' [ %s ]' % (', '.join(attr_strs))
+      attr_strs = [f'{k}="{v}"' for k, v in node.attributes.iteritems()]
+      res += f" [ {', '.join(attr_strs)} ]"
     res += ';'
     assert node.id not in self.node_strings
     self.node_strings[node.id] = res
 
   def addEdge(self, n1, n2):
-    res = '%s -> %s;' % (n1.id, n2.id)
+    res = f'{n1.id} -> {n2.id};'
     self.edge_strings += [res]
 
   def node_key(self, n):
@@ -39,11 +37,9 @@ class DotEmitter(object):
     assert id.startswith('\w*\d+')
 
   def emit(self):
-    node_definitions_list = []
     sorted_keys = self.node_strings.keys()
     sorted_keys.sort()
-    for k in sorted_keys:
-      node_definitions_list += [self.node_strings[k]]
+    node_definitions_list = [self.node_strings[k] for k in sorted_keys]
     node_definitions = '\n  '.join(node_definitions_list)
     edge_list = '\n  '.join(self.edge_strings)
     return '''
@@ -68,12 +64,9 @@ class DotReader(object):
     if not self.parseIntroducer(lines[idx]):
       self.abortParse('failed to parse introducer')
     idx += 1
-    while idx < maxIdx:
-      if self.parseNodeDefinition(lines[idx]) or self.parseEdgeDefinition(lines[idx]):
-        idx += 1
-        continue
-      else:
-        break
+    while idx < maxIdx and (self.parseNodeDefinition(lines[idx])
+                            or self.parseEdgeDefinition(lines[idx])):
+      idx += 1
     if idx == maxIdx or not self.parseCloser(lines[idx]):
       self.abortParse("no closing } found")
     return self.graph
@@ -83,8 +76,8 @@ class DotReader(object):
     m = edge_re.match(l)
     if not m:
       return False
-    n1 = m.group(1)
-    n2 = m.group(2)
+    n1 = m[1]
+    n2 = m[2]
     self.graph.addEdge(n1, n2)
     return True
 
@@ -95,8 +88,8 @@ class DotReader(object):
     for a in parts:
       m = attribute_re.match(a)
       if not m:
-        self.abortParse('Bad attribute "%s"' % a)
-      attribute_dict[m.group(1)] = m.group(2)
+        self.abortParse(f'Bad attribute "{a}"')
+      attribute_dict[m[1]] = m[2]
     return attribute_dict
 
   def parseNodeDefinition(self, l):
@@ -104,8 +97,8 @@ class DotReader(object):
     m = node_definition_re.match(l)
     if not m:
       return False
-    id = m.group(1)
-    attributes = self.parseAttributes(m.group(2))
+    id = m[1]
+    attributes = self.parseAttributes(m[2])
     n = Node(id, edges=[], attributes=attributes)
     self.graph.addNode(n)
     return True
@@ -115,15 +108,13 @@ class DotReader(object):
     m = introducer_re.match(l)
     if not m:
       return False
-    self.graph.setName(m.group(1))
+    self.graph.setName(m[1])
     return True
 
   def parseCloser(self, l):
     closer_re = re.compile('^\s*}\s*$')
     m = closer_re.match(l)
-    if not m:
-      return False
-    return True
+    return bool(m)
 
 class Node(object):
   def __init__(self, id, edges=[], attributes={}):
@@ -147,13 +138,6 @@ class Node(object):
 
   def __repr__(self):
     return self.__str__()
-    res = self.id
-    if len(self.attributes):
-      attr = []
-      for k,v in self.attributes.iteritems():
-        attr += ['%s="%s"' % (k, v)]
-      res += ' [%s ]' % (', '.join(attr))
-    return res
 
 class DirectedGraph(object):
   def __init__(self, name=None, nodes=None):
@@ -164,16 +148,11 @@ class DirectedGraph(object):
     self.name = n
 
   def _getNode(self, n_or_id):
-    if isinstance(n_or_id, Node):
-      return n_or_id
-    return self.getNode(n_or_id)
+    return n_or_id if isinstance(n_or_id, Node) else self.getNode(n_or_id)
 
   def getNode(self, str_id):
-    assert isinstance(str_id, str) or isinstance(str_id, Node)
-    for s in self.nodes:
-      if s == str_id:
-        return s
-    return None
+    assert isinstance(str_id, (str, Node))
+    return next((s for s in self.nodes if s == str_id), None)
 
   def getNodeByLabel(self, l):
     found = None
@@ -198,10 +177,7 @@ class DirectedGraph(object):
     for other_n in self.nodes:
       if other_n == n:
         continue
-      new_edges = set()
-      for e in other_n.edges:
-        if e != n:
-          new_edges.add(e)
+      new_edges = {e for e in other_n.edges if e != n}
       other_n.edges = new_edges
     self.nodes.remove(n)
 
@@ -216,8 +192,7 @@ class DirectedGraph(object):
   @staticmethod
   def fromDot(str):
     reader = DotReader()
-    graph = reader.parse(str)
-    return graph
+    return reader.parse(str)
 
   @staticmethod
   def fromDotFile(fname):
@@ -270,11 +245,10 @@ class CycleFinder(object):
 
   def findCycleForNode(self, n):
     assert n in self.graph.nodes
-    all_paths = {}
     all_cycles = []
     bfs = BFS(n)
     bfs.push_back(n)
-    all_paths[n] = [n]
+    all_paths = {n: [n]}
     while bfs:
       n = bfs.pop_front()
       assert n in all_paths
@@ -292,7 +266,6 @@ class CycleFinder(object):
   def findCyclesInGraph(self):
     all_cycles = []
     for n in self.graph.nodes:
-      cycle = self.findCycleForNode(n)
-      if cycle:
+      if cycle := self.findCycleForNode(n):
         all_cycles += [(n, cycle)]
     return all_cycles

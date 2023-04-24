@@ -81,8 +81,12 @@ def parseScript(test, preamble, fileDependencies):
     script += parsed
 
     # Add compile flags specified with ADDITIONAL_COMPILE_FLAGS.
-    substitutions = [(s, x + ' ' + ' '.join(additionalCompileFlags)) if s == '%{compile_flags}'
-                            else (s, x) for (s, x) in substitutions]
+    substitutions = [
+        (s, f'{x} ' + ' '.join(additionalCompileFlags))
+        if s == '%{compile_flags}'
+        else (s, x)
+        for (s, x) in substitutions
+    ]
 
     # Perform substitutions inside FILE_DEPENDENCIES lines (or injected dependencies).
     # This allows using variables like %t in file dependencies. Also note that we really
@@ -230,14 +234,15 @@ class CxxStandardLibraryTest(lit.formats.TestFormat):
                 continue
 
             filepath = os.path.join(sourcePath, filename)
-            if not os.path.isdir(filepath):
-                if any([re.search(ext, filename) for ext in SUPPORTED_SUFFIXES]):
-                    yield lit.Test.Test(testSuite, pathInSuite + (filename,), localConfig)
+            if not os.path.isdir(filepath) and any(
+                re.search(ext, filename) for ext in SUPPORTED_SUFFIXES
+            ):
+                yield lit.Test.Test(testSuite, pathInSuite + (filename,), localConfig)
 
     def _checkBaseSubstitutions(self, substitutions):
         substitutions = [s for (s, _) in substitutions]
         for s in ['%{cxx}', '%{compile_flags}', '%{link_flags}', '%{flags}', '%{exec}']:
-            assert s in substitutions, "Required substitution {} was not provided".format(s)
+            assert s in substitutions, f"Required substitution {s} was not provided"
 
     def _disableWithModules(self, test):
         with open(test.getSourcePath(), 'rb') as f:
@@ -295,17 +300,12 @@ class CxxStandardLibraryTest(lit.formats.TestFormat):
                 "%dbg(COMPILED WITH) %{cxx} %s %{flags} %{compile_flags} -fsyntax-only %{verify}"
             ]
             return self._executeShTest(test, litConfig, steps)
-        # Make sure to check these ones last, since they will match other
-        # suffixes above too.
         elif filename.endswith('.pass.cpp') or filename.endswith('.pass.mm'):
             steps = [
                 "%dbg(COMPILED WITH) %{{cxx}} %s {} %{{flags}} %{{compile_flags}} %{{link_flags}} -o %t.exe".format(werror),
                 "%dbg(EXECUTED AS) %{exec} %t.exe"
             ]
             return self._executeShTest(test, litConfig, steps, fileDependencies=['%t.exe'])
-        # This is like a .verify.cpp test when clang-verify is supported,
-        # otherwise it's like a .compile.fail.cpp test. This is only provided
-        # for backwards compatibility with the test suite.
         elif filename.endswith('.fail.cpp'):
             if _supportsVerify(test):
                 steps = [
@@ -317,12 +317,17 @@ class CxxStandardLibraryTest(lit.formats.TestFormat):
                 ]
             return self._executeShTest(test, litConfig, steps)
         else:
-            return lit.Test.Result(lit.Test.UNRESOLVED, "Unknown test suffix for '{}'".format(filename))
+            return lit.Test.Result(
+                lit.Test.UNRESOLVED, f"Unknown test suffix for '{filename}'"
+            )
 
     # Utility function to add compile flags in lit.local.cfg files.
     def addCompileFlags(self, config, *flags):
         string = ' '.join(flags)
-        config.substitutions = [(s, x + ' ' + string) if s == '%{compile_flags}' else (s, x) for (s, x) in config.substitutions]
+        config.substitutions = [
+            (s, f'{x} {string}') if s == '%{compile_flags}' else (s, x)
+            for (s, x) in config.substitutions
+        ]
 
     def _executeShTest(self, test, litConfig, steps, fileDependencies=None):
         if test.config.unsupported:
@@ -334,7 +339,5 @@ class CxxStandardLibraryTest(lit.formats.TestFormat):
 
         if litConfig.noExecute:
             return lit.Test.Result(lit.Test.XFAIL if test.isExpectedToFail() else lit.Test.PASS)
-        else:
-            _, tmpBase = lit.TestRunner.getTempPaths(test)
-            useExternalSh = True
-            return lit.TestRunner._runShTest(test, litConfig, useExternalSh, script, tmpBase)
+        _, tmpBase = lit.TestRunner.getTempPaths(test)
+        return lit.TestRunner._runShTest(test, litConfig, True, script, tmpBase)

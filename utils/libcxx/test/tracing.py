@@ -34,9 +34,7 @@ def trace_function(function, log_calls, log_results, label=''):
 
 def trace_object(obj, log_calls, log_results, label=''):
     for name, member in inspect.getmembers(obj):
-        if inspect.ismethod(member):
-            # Skip meta-functions, decorate everything else
-            if not member.__name__.startswith('__'):
-                setattr(obj, name, trace_function(member, log_calls,
-                                                  log_results, label))
+        if inspect.ismethod(member) and not member.__name__.startswith('__'):
+            setattr(obj, name, trace_function(member, log_calls,
+                                              log_results, label))
     return obj

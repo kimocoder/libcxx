@@ -69,7 +69,7 @@ def repository(urls = urls, log = EmptyLogger()):
         socket.close()
         for entry in repo.split('\n')[:-1]:
             value = entry.split('|')
-            version = tuple([int(n) for n in value[0].strip().split('.')])
+            version = tuple(int(n) for n in value[0].strip().split('.'))
             version = versions.setdefault(version, {})
             arch = value[1].strip()
             if arch == 'x32':
@@ -117,7 +117,7 @@ def unpack(archive, location, log = EmptyLogger()):
     '''
     sevenzip = find_7zip(log)
     log.info('unpacking %s', os.path.basename(archive))
-    cmd = [sevenzip, 'x', archive, '-o' + location, '-y']
+    cmd = [sevenzip, 'x', archive, f'-o{location}', '-y']
     log.debug(' - %r', cmd)
     with open(os.devnull, 'w') as devnull:
         subprocess.check_call(cmd, stdout = devnull)
@@ -137,9 +137,8 @@ def download(url, location, log = EmptyLogger()):
         content = stream.getheader('Content-Disposition') or ''
     except AttributeError:
         content = stream.headers.getheader('Content-Disposition') or ''
-    matches = re_content.match(content)
-    if matches:
-        filename = matches.group(2)
+    if matches := re_content.match(content):
+        filename = matches[2]
     else:
         parsed = parse.urlparse(stream.geturl())
         filename = os.path.basename(parsed.path)
@@ -147,18 +146,16 @@ def download(url, location, log = EmptyLogger()):
     try:
         os.makedirs(location)
     except OSError as e:
-        if e.errno == errno.EEXIST and os.path.isdir(location):
-            pass
-        else:
+        if e.errno != errno.EEXIST or not os.path.isdir(location):
             raise
 
     archive = os.path.join(location, filename)
     with open(archive, 'wb') as out:
         while True:
-            buf = stream.read(1024)
-            if not buf:
+            if buf := stream.read(1024):
+                out.write(buf)
+            else:
                 break
-            out.write(buf)
     unpack(archive, location, log = log)
     os.remove(archive)
 
@@ -166,7 +163,7 @@ def download(url, location, log = EmptyLogger()):
     if not os.path.exists(possible):
         possible = os.path.join(location, 'mingw32')
         if not os.path.exists(possible):
-            raise ValueError('Failed to find unpacked MinGW: ' + possible)
+            raise ValueError(f'Failed to find unpacked MinGW: {possible}')
     return possible
 
 def root(location = None, arch = None, version = None, threading = None,
@@ -204,7 +201,7 @@ def root(location = None, arch = None, version = None, threading = None,
             exceptions = 'sjlj'
         else:
             exceptions = keys[0]
-    if revision == None:
+    if revision is None:
         revision = max(versions[version][arch][threading][exceptions].keys())
     if not location:
         location = os.path.join(tempfile.gettempdir(), 'mingw-builds')
@@ -234,7 +231,7 @@ def root(location = None, arch = None, version = None, threading = None,
     elif arch == 'i686':
         root_dir = os.path.join(location, slug, 'mingw32')
     else:
-        raise ValueError('Unknown MinGW arch: ' + arch)
+        raise ValueError(f'Unknown MinGW arch: {arch}')
 
     # Download if needed
     if not os.path.exists(root_dir):

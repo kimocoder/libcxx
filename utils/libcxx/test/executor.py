@@ -194,16 +194,10 @@ class SSHExecutor(RemoteExecutor):
     def __init__(self, host, username=None):
         super(SSHExecutor, self).__init__()
 
-        self.user_prefix = username + '@' if username else ''
+        self.user_prefix = f'{username}@' if username else ''
         self.host = host
         self.scp_command = 'scp'
         self.ssh_command = 'ssh'
-
-        # TODO(jroelofs): switch this on some -super-verbose-debug config flag
-        if False:
-            self.local_run = tracing.trace_function(
-                self.local_run, log_calls=True, log_results=True,
-                label='ssh_local')
 
     def _remote_temp(self, is_dir):
         # TODO: detect what the target system is, and use the correct
@@ -212,7 +206,7 @@ class SSHExecutor(RemoteExecutor):
 
         # Not sure how to do suffix on osx yet
         dir_arg = '-d' if is_dir else ''
-        cmd = 'mktemp -q {} /tmp/libcxx.XXXXXXXXXX'.format(dir_arg)
+        cmd = f'mktemp -q {dir_arg} /tmp/libcxx.XXXXXXXXXX'
         _, temp_path, err, exitCode = self.execute_command_remote([cmd])
         temp_path = temp_path.strip()
         if exitCode != 0:
@@ -223,7 +217,7 @@ class SSHExecutor(RemoteExecutor):
         scp = self.scp_command
         remote = self.host
         remote = self.user_prefix + remote
-        cmd = [scp, '-p', src, remote + ':' + dst]
+        cmd = [scp, '-p', src, f'{remote}:{dst}']
         self.local_run(cmd)
 
     def _export_command(self, env):
@@ -239,9 +233,9 @@ class SSHExecutor(RemoteExecutor):
                 if self.target_info and self.target_info.is_windows():
                     export_cmd.append('PATH="%s;%PATH%"' % v)
                 else:
-                    export_cmd.append('PATH="%s:$PATH"' % v)
+                    export_cmd.append(f'PATH="{v}:$PATH"')
             else:
-                export_cmd.append('"%s"="%s"' % (k, v))
+                export_cmd.append(f'"{k}"="{v}"')
 
         return export_cmd
 
@@ -253,6 +247,6 @@ class SSHExecutor(RemoteExecutor):
         if export_cmd:
             remote_cmd = ' '.join(export_cmd) + ' && ' + remote_cmd
         if remote_work_dir != '.':
-            remote_cmd = 'cd ' + remote_work_dir + ' && ' + remote_cmd
+            remote_cmd = f'cd {remote_work_dir} && {remote_cmd}'
         out, err, rc = self.local_run(ssh_cmd + [remote_cmd])
         return (remote_cmd, out, err, rc)

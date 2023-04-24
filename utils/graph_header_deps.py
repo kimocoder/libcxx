@@ -23,8 +23,7 @@ def print_and_exit(msg):
 
 def libcxx_include_path():
     curr_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    include_dir = os.path.join(curr_dir, 'include')
-    return include_dir
+    return os.path.join(curr_dir, 'include')
 
 def get_libcxx_headers():
     headers = []
@@ -34,7 +33,9 @@ def get_libcxx_headers():
         if not os.path.isfile(f):
             continue
         base, ext = os.path.splitext(fname)
-        if (ext == '' or ext == '.h') and (not fname.startswith('__') or fname == '__config'):
+        if ext in ['', '.h'] and (
+            not fname.startswith('__') or fname == '__config'
+        ):
             headers += [f]
     return headers
 
@@ -46,7 +47,7 @@ def rename_headers_and_remove_test_root(graph):
         assert 'label' in n.attributes
         l = n.attributes['label']
         if not l.startswith('/') and os.path.exists(os.path.join('/', l)):
-            l = '/' + l
+            l = f'/{l}'
         if l.endswith('.tmp.cpp'):
             to_remove.add(n)
         if l.startswith(inc_root):
@@ -71,7 +72,7 @@ class DependencyCommand(object):
     def __init__(self, compile_commands, output_dir, new_std=None):
         output_dir = os.path.abspath(output_dir)
         if not os.path.isdir(output_dir):
-            print_and_exit('"%s" must point to a directory' % output_dir)
+            print_and_exit(f'"{output_dir}" must point to a directory')
         self.output_dir = output_dir
         self.new_std = new_std
         cwd,bcmd =  self._get_base_command(compile_commands)
@@ -82,9 +83,17 @@ class DependencyCommand(object):
         outputs = []
         for header in header_list:
             header_name = os.path.basename(header)
-            out = os.path.join(self.output_dir, ('%s.dot' % header_name))
+            out = os.path.join(self.output_dir, f'{header_name}.dot')
             outputs += [out]
-            cmd =  self.base_cmd + ["-fsyntax-only", "-Xclang", "-dependency-dot", "-Xclang", "%s" % out, '-xc++', '-']
+            cmd = self.base_cmd + [
+                "-fsyntax-only",
+                "-Xclang",
+                "-dependency-dot",
+                "-Xclang",
+                f"{out}",
+                '-xc++',
+                '-',
+            ]
             libcxx.util.executeCommandOrDie(cmd, cwd=self.cwd, input='#include <%s>\n\n' % header_name)
         return outputs
 
@@ -196,9 +205,9 @@ def main():
         all_cycles = cycle_finder.findCyclesInGraph()
         if len(all_cycles):
             found_cycles = True
-            print("cycle in graph %s" % g.name)
+            print(f"cycle in graph {g.name}")
             for start, path in all_cycles:
-                print("Cycle for %s = %s" % (start, path))
+                print(f"Cycle for {start} = {path}")
     if not found_cycles:
         print("No cycles found")
 

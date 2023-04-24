@@ -13,9 +13,8 @@ def find_used_labels(asm):
     found = set()
     label_re = re.compile("\s*j[a-z]+\s+\.L([a-zA-Z0-9][a-zA-Z0-9_]*)")
     for l in asm.splitlines():
-        m = label_re.match(l)
-        if m:
-            found.add('.L%s' % m.group(1))
+        if m := label_re.match(l):
+            found.add(f'.L{m[1]}')
     return found
 
 
@@ -23,10 +22,9 @@ def normalize_labels(asm):
     decls = set()
     label_decl = re.compile("^[.]{0,1}L([a-zA-Z0-9][a-zA-Z0-9_]*)(?=:)")
     for l in asm.splitlines():
-        m = label_decl.match(l)
-        if m:
-            decls.add(m.group(0))
-    if len(decls) == 0:
+        if m := label_decl.match(l):
+            decls.add(m[0])
+    if not decls:
         return asm
     needs_dot = next(iter(decls))[0] != '.'
     if not needs_dot:
@@ -43,7 +41,7 @@ def transform_labels(asm):
     label_decl = re.compile("^\.L([a-zA-Z0-9][a-zA-Z0-9_]*)(?=:)")
     for l in asm.splitlines():
         m = label_decl.match(l)
-        if not m or m.group(0) in used_decls:
+        if not m or m[0] in used_decls:
             new_asm += l
             new_asm += '\n'
     return new_asm
@@ -103,16 +101,10 @@ def process_asm(asm):
     for l in asm.splitlines():
         # Remove Mach-O attribute
         l = l.replace('@GOTPCREL', '')
-        add_line = True
-        for reg in discard_regexes:
-            if reg.match(l) is not None:
-                add_line = False
-                break
-        for reg in keep_regexes:
-            if reg.match(l) is not None:
-                add_line = True
-                break
-        if add_line:
+        if add_line := next(
+            (True for reg in keep_regexes if reg.match(l) is not None),
+            all(reg.match(l) is None for reg in discard_regexes),
+        ):
             if fn_label_def.match(l) and len(new_contents) != 0:
                 new_contents += '\n'
             l = process_identifiers(l)
@@ -133,7 +125,7 @@ def main():
     input = args.input[0]
     output = args.out[0]
     if not os.path.isfile(input):
-        print(("ERROR: input file '%s' does not exist") % input)
+        print(f"ERROR: input file '{input}' does not exist")
         sys.exit(1)
     contents = None
     with open(input, 'r') as f:

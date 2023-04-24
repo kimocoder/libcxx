@@ -41,10 +41,7 @@ class CXXCompiler(object):
         assert not use_modules or modules_flags is not None
         self.use_ccache = use_ccache
         self.use_warnings = use_warnings
-        if compile_env is not None:
-            self.compile_env = dict(compile_env)
-        else:
-            self.compile_env = None
+        self.compile_env = dict(compile_env) if compile_env is not None else None
         self.type = cxx_type
         self.version = cxx_version
         if self.type is None or self.version is None:
@@ -102,9 +99,7 @@ class CXXCompiler(object):
     def _basicCmd(self, source_files, out, mode=CM_Default, flags=[],
                   input_is_cxx=False):
         cmd = []
-        if self.use_ccache \
-                and not mode == self.CM_Link \
-                and not mode == self.CM_PreProcess:
+        if self.use_ccache and mode != self.CM_Link and mode != self.CM_PreProcess:
             cmd += ['ccache']
         cmd += [self.path]
         if out is not None:
@@ -131,7 +126,7 @@ class CXXCompiler(object):
             cmd += self.compile_flags
             if self.use_warnings:
                 cmd += self.warning_flags
-        if mode != self.CM_PreProcess and mode != self.CM_Compile:
+        if mode not in [self.CM_PreProcess, self.CM_Compile]:
             cmd += self.link_flags
         cmd += flags
         return cmd
@@ -170,9 +165,7 @@ class CXXCompiler(object):
         out, err, rc = libcxx.util.executeCommand(cmd, env=self.compile_env,
                                                   cwd=cwd)
         cs_cmd, cs_out, cs_err, cs_rc = self.codesign(exec_path, cwd)
-        if cs_rc != 0:
-            return cs_cmd, cs_out, cs_err, cs_rc
-        return cmd, out, err, rc
+        return (cs_cmd, cs_out, cs_err, cs_rc) if cs_rc != 0 else (cmd, out, err, rc)
 
     def compileLink(self, source_files, exec_path=None, flags=[],
                     cwd=None):
@@ -180,9 +173,7 @@ class CXXCompiler(object):
         out, err, rc = libcxx.util.executeCommand(cmd, env=self.compile_env,
                                                   cwd=cwd)
         cs_cmd, cs_out, cs_err, cs_rc = self.codesign(exec_path, cwd)
-        if cs_rc != 0:
-            return cs_cmd, cs_out, cs_err, cs_rc
-        return cmd, out, err, rc
+        return (cs_cmd, cs_out, cs_err, cs_rc) if cs_rc != 0 else (cmd, out, err, rc)
 
     def codesign(self, exec_path, cwd=None):
         null_op = [], '', '', 0
@@ -237,10 +228,7 @@ class CXXCompiler(object):
         return libcxx.util.capture(cmd).strip()
 
     def hasCompileFlag(self, flag):
-        if isinstance(flag, list):
-            flags = list(flag)
-        else:
-            flags = [flag]
+        flags = list(flag) if isinstance(flag, list) else [flag]
         # Add -Werror to ensure that an unrecognized flag causes a non-zero
         # exit code. -Werror is supported on all known compiler types.
         if self.type is not None:
@@ -250,10 +238,7 @@ class CXXCompiler(object):
         return rc == 0
 
     def addFlagIfSupported(self, flag):
-        if isinstance(flag, list):
-            flags = list(flag)
-        else:
-            flags = [flag]
+        flags = list(flag) if isinstance(flag, list) else [flag]
         if self.hasCompileFlag(flags):
             self.flags += flags
             return True
@@ -261,10 +246,7 @@ class CXXCompiler(object):
             return False
 
     def addCompileFlagIfSupported(self, flag):
-        if isinstance(flag, list):
-            flags = list(flag)
-        else:
-            flags = [flag]
+        flags = list(flag) if isinstance(flag, list) else [flag]
         if self.hasCompileFlag(flags):
             self.compile_flags += flags
             return True
@@ -297,9 +279,7 @@ class CXXCompiler(object):
             cmd, input=libcxx.util.to_bytes('#error\n'))
 
         assert rc != 0
-        if flag in err:
-            return False
-        return True
+        return flag not in err
 
     def addWarningFlagIfSupported(self, flag):
         if self.hasWarningFlag(flag):

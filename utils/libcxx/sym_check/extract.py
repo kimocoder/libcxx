@@ -53,7 +53,7 @@ class NMExtractor(object):
         cmd = [self.nm_exe] + self.flags + [lib]
         out, _, exit_code = libcxx.util.executeCommandVerbose(cmd)
         if exit_code != 0:
-            raise RuntimeError('Failed to run %s on %s' % (self.nm_exe, lib))
+            raise RuntimeError(f'Failed to run {self.nm_exe} on {lib}')
         fmt_syms = (self._extract_sym(l)
                     for l in out.splitlines() if l.strip())
         # Cast symbol to string.
@@ -141,7 +141,7 @@ class ReadElfExtractor(object):
         cmd = [self.tool] + self.flags + [lib]
         out, _, exit_code = libcxx.util.executeCommandVerbose(cmd)
         if exit_code != 0:
-            raise RuntimeError('Failed to run %s on %s' % (self.nm_exe, lib))
+            raise RuntimeError(f'Failed to run {self.nm_exe} on {lib}')
         dyn_syms = self.get_dynsym_table(out)
         return self.process_syms(dyn_syms)
 
@@ -151,7 +151,7 @@ class ReadElfExtractor(object):
             parts = s.split()
             if not parts:
                 continue
-            assert len(parts) == 7 or len(parts) == 8 or len(parts) == 9
+            assert len(parts) in {7, 8, 9}
             if len(parts) == 7:
                 continue
             new_sym = {
@@ -193,7 +193,7 @@ def extract_symbols(lib_file, static_lib=None):
     """
     if static_lib is None:
         _, ext = os.path.splitext(lib_file)
-        static_lib = True if ext in ['.a'] else False
+        static_lib = ext in ['.a']
     if ReadElfExtractor.find_tool() and not static_lib:
         extractor = ReadElfExtractor(static_lib=static_lib)
     else:

@@ -21,7 +21,7 @@ class GoogleBenchmark(TestFormat):
             exe_suffix += '.exe'
 
         # Also check for .py files for testing purposes.
-        self.test_suffixes = {exe_suffix, test_suffix + '.py'}
+        self.test_suffixes = {exe_suffix, f'{test_suffix}.py'}
 
     def getBenchmarkTests(self, path, litConfig, localConfig):
         """getBenchmarkTests(path) - [name]
@@ -61,8 +61,7 @@ class GoogleBenchmark(TestFormat):
             ln = ln[index*2:]
             if ln.endswith('.'):
                 nested_tests.append(ln)
-            elif any([name.startswith('DISABLED_')
-                      for name in nested_tests + [ln]]):
+            elif any(name.startswith('DISABLED_') for name in nested_tests + [ln]):
                 # Gtest will internally skip these tests. No need to launch a
                 # child process for it.
                 continue
@@ -92,9 +91,9 @@ class GoogleBenchmark(TestFormat):
             # Handle GTest parametrized and typed tests, whose name includes
             # some '/'s.
             testPath, namePrefix = os.path.split(testPath)
-            testName = namePrefix + '/' + testName
+            testName = f'{namePrefix}/{testName}'
 
-        cmd = [testPath, '--benchmark_filter=%s$' % testName ] + self.benchmark_args
+        cmd = [testPath, f'--benchmark_filter={testName}$'] + self.benchmark_args
 
         if litConfig.noExecute:
             return lit.Test.PASS, ''
@@ -104,10 +103,10 @@ class GoogleBenchmark(TestFormat):
                 cmd, env=test.config.environment,
                 timeout=litConfig.maxIndividualTestTime)
         except lit.util.ExecuteCommandTimeoutException:
-            return (lit.Test.TIMEOUT,
-                    'Reached timeout of {} seconds'.format(
-                        litConfig.maxIndividualTestTime)
-                   )
+            return (
+                lit.Test.TIMEOUT,
+                f'Reached timeout of {litConfig.maxIndividualTestTime} seconds',
+            )
 
         if exitCode:
             return lit.Test.FAIL, ('exit code: %d\n' % exitCode) + out + err

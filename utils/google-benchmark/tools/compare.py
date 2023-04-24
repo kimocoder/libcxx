@@ -54,7 +54,8 @@ def create_parser():
         dest='utest',
         default=True,
         action="store_false",
-        help="The tool can do a two-tailed Mann-Whitney U test with the null hypothesis that it is equally likely that a randomly selected value from one sample will be less than or greater than a randomly selected value from a second sample.\nWARNING: requires **LARGE** (no less than {}) number of repetitions to be meaningful!\nThe test is being done by default, if at least {} repetitions were done.\nThis option can disable the U Test.".format(report.UTEST_OPTIMAL_REPETITIONS, report.UTEST_MIN_REPETITIONS))
+        help=f"The tool can do a two-tailed Mann-Whitney U test with the null hypothesis that it is equally likely that a randomly selected value from one sample will be less than or greater than a randomly selected value from a second sample.\nWARNING: requires **LARGE** (no less than {report.UTEST_OPTIMAL_REPETITIONS}) number of repetitions to be meaningful!\nThe test is being done by default, if at least {report.UTEST_MIN_REPETITIONS} repetitions were done.\nThis option can disable the U Test.",
+    )
     alpha_default = 0.05
     utest.add_argument(
         "--alpha",
@@ -181,7 +182,7 @@ def main():
 
         # NOTE: if test_baseline == test_contender, you are analyzing the stdev
 
-        description = 'Comparing %s to %s' % (test_baseline, test_contender)
+        description = f'Comparing {test_baseline} to {test_contender}'
     elif args.mode == 'filters':
         test_baseline = args.test[0].name
         test_contender = args.test[0].name
@@ -191,8 +192,7 @@ def main():
         # NOTE: if filter_baseline == filter_contender, you are analyzing the
         # stdev
 
-        description = 'Comparing %s to %s (from %s)' % (
-            filter_baseline, filter_contender, args.test[0].name)
+        description = f'Comparing {filter_baseline} to {filter_contender} (from {args.test[0].name})'
     elif args.mode == 'benchmarksfiltered':
         test_baseline = args.test_baseline[0].name
         test_contender = args.test_contender[0].name
@@ -202,11 +202,10 @@ def main():
         # NOTE: if test_baseline == test_contender and
         # filter_baseline == filter_contender, you are analyzing the stdev
 
-        description = 'Comparing %s (from %s) to %s (from %s)' % (
-            filter_baseline, test_baseline, filter_contender, test_contender)
+        description = f'Comparing {filter_baseline} (from {test_baseline}) to {filter_contender} (from {test_contender})'
     else:
         # should never happen
-        print("Unrecognized mode of operation: '%s'" % args.mode)
+        print(f"Unrecognized mode of operation: '{args.mode}'")
         parser.print_help()
         exit(1)
 
@@ -219,8 +218,8 @@ def main():
     options_contender = []
 
     if filter_baseline and filter_contender:
-        options_baseline = ['--benchmark_filter=%s' % filter_baseline]
-        options_contender = ['--benchmark_filter=%s' % filter_contender]
+        options_baseline = [f'--benchmark_filter={filter_baseline}']
+        options_contender = [f'--benchmark_filter={filter_contender}']
 
     # Run the benchmarks and report the results
     json1 = json1_orig = gbench.util.run_or_load_benchmark(
@@ -230,7 +229,7 @@ def main():
 
     # Now, filter the benchmarks so that the difference report can work
     if filter_baseline and filter_contender:
-        replacement = '[%s vs. %s]' % (filter_baseline, filter_contender)
+        replacement = f'[{filter_baseline} vs. {filter_contender}]'
         json1 = gbench.report.filter_benchmark(
             json1_orig, filter_baseline, replacement)
         json2 = gbench.report.filter_benchmark(

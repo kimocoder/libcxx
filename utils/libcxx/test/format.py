@@ -61,7 +61,7 @@ class LibcxxTestFormat(object):
         for p in parsers:
             if p.keyword == key:
                 return p
-        assert False and "parser not found"
+        assert False
 
     # TODO: Move this into lit's FileBasedTest
     def getTestsInDirectory(self, testSuite, path_in_suite,
@@ -73,11 +73,11 @@ class LibcxxTestFormat(object):
                 continue
 
             filepath = os.path.join(source_path, filename)
-            if not os.path.isdir(filepath):
-                if any([filename.endswith(ext)
-                        for ext in localConfig.suffixes]):
-                    yield lit.Test.Test(testSuite, path_in_suite + (filename,),
-                                        localConfig)
+            if not os.path.isdir(filepath) and any(
+                filename.endswith(ext) for ext in localConfig.suffixes
+            ):
+                yield lit.Test.Test(testSuite, path_in_suite + (filename,),
+                                    localConfig)
 
     def execute(self, test, lit_config):
         while True:
@@ -97,14 +97,16 @@ class LibcxxTestFormat(object):
         is_fail_test = name.endswith('.fail.cpp')
         is_objcxx_test = name.endswith('.mm')
         assert is_sh_test or name_ext == '.cpp' or name_ext == '.mm', \
-            'non-cpp file must be sh test'
+                'non-cpp file must be sh test'
 
         if test.config.unsupported:
             return (lit.Test.UNSUPPORTED,
                     "A lit.local.cfg marked this unsupported")
 
-        if is_objcxx_test and not \
-           'objective-c++' in test.config.available_features:
+        if (
+            is_objcxx_test
+            and 'objective-c++' not in test.config.available_features
+        ):
             return (lit.Test.UNSUPPORTED, "Objective-C++ is not supported")
 
         setattr(test, 'file_dependencies', [])
@@ -121,7 +123,7 @@ class LibcxxTestFormat(object):
 
         # Check that we don't have run lines on tests that don't support them.
         if not is_sh_test and len(script) != 0:
-            lit_config.fatal('Unsupported RUN line found in test %s' % name)
+            lit_config.fatal(f'Unsupported RUN line found in test {name}')
 
         tmpDir, tmpBase = lit.TestRunner.getTempPaths(test)
         substitutions = lit.TestRunner.getDefaultSubstitutions(
@@ -195,8 +197,8 @@ class LibcxxTestFormat(object):
                             test_cxx, parsers, data_files):
         execDir = os.path.dirname(test.getExecPath())
         source_path = test.getSourcePath()
-        exec_path = tmpBase + '.exe'
-        object_path = tmpBase + '.o'
+        exec_path = f'{tmpBase}.exe'
+        object_path = f'{tmpBase}.o'
         # Create the output directory if it does not already exist.
         libcxx.util.mkdir_p(os.path.dirname(tmpBase))
         try:
@@ -209,11 +211,7 @@ class LibcxxTestFormat(object):
                 report = libcxx.util.makeReport(cmd, out, err, rc)
                 report += "Compilation failed unexpectedly!"
                 return lit.Test.Result(lit.Test.FAIL, report)
-            # Run the test
-            env = None
-            if self.exec_env:
-                env = self.exec_env
-
+            env = self.exec_env if self.exec_env else None
             max_retry = test.allowed_retries + 1
             for retry_count in range(max_retry):
                 # Create a temporary directory just for that test and run the
@@ -230,7 +228,7 @@ class LibcxxTestFormat(object):
                 if rc == 0:
                     res = lit.Test.PASS if retry_count == 0 else lit.Test.FLAKYPASS
                     return lit.Test.Result(res, report)
-                elif rc != 0 and retry_count + 1 == max_retry:
+                elif retry_count + 1 == max_retry:
                     report += "Compiled test failed unexpectedly!"
                     return lit.Test.Result(lit.Test.FAIL, report)
 
@@ -249,8 +247,9 @@ class LibcxxTestFormat(object):
         verify_tags = [b'expected-note', b'expected-remark',
                        b'expected-warning', b'expected-error',
                        b'expected-no-diagnostics']
-        use_verify = self.use_verify_for_fail and \
-                     any([tag in contents for tag in verify_tags])
+        use_verify = self.use_verify_for_fail and any(
+            tag in contents for tag in verify_tags
+        )
         test_cxx.flags += ['-fsyntax-only']
         if use_verify:
             test_cxx.useVerify()
@@ -259,7 +258,9 @@ class LibcxxTestFormat(object):
         report = libcxx.util.makeReport(cmd, out, err, rc)
         if check_rc(rc):
             return lit.Test.Result(lit.Test.PASS, report)
-        else:
-            report += ('Expected compilation to fail!\n' if not use_verify else
-                       'Expected compilation using verify to pass!\n')
-            return lit.Test.Result(lit.Test.FAIL, report)
+        report += (
+            'Expected compilation using verify to pass!\n'
+            if use_verify
+            else 'Expected compilation to fail!\n'
+        )
+        return lit.Test.Result(lit.Test.FAIL, report)

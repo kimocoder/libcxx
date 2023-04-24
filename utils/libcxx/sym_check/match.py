@@ -32,8 +32,4 @@ def find_and_report_matching(symbol_list, regex_list):
 
 def find_matching_symbols(symbol_list, regex_str):
     regex = re.compile(regex_str)
-    matching_list = []
-    for s in symbol_list:
-        if regex.match(s['name']):
-            matching_list += [s]
-    return matching_list
+    return [s for s in symbol_list if regex.match(s['name'])]

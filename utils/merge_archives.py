@@ -39,7 +39,7 @@ def find_and_diagnose_missing(lib, search_paths):
         path = os.path.join(sp[0], lib)
         if os.path.exists(path):
             return os.path.abspath(path)
-    print_and_exit("input '%s' does not exist" % lib)
+    print_and_exit(f"input '{lib}' does not exist")
 
 
 def execute_command(cmd, cwd=None):
@@ -67,7 +67,7 @@ def execute_command_verbose(cmd, cwd=None, verbose=False):
     """
     out, err, exitCode = execute_command(cmd, cwd=cwd)
     if exitCode != 0 or verbose:
-        report = "Command: %s\n" % ' '.join(["'%s'" % a for a in cmd])
+        report = "Command: %s\n" % ' '.join([f"'{a}'" for a in cmd])
         if exitCode != 0:
             report += "Exit Code: %d\n" % exitCode
         if out:
@@ -77,8 +77,8 @@ def execute_command_verbose(cmd, cwd=None, verbose=False):
         if exitCode != 0:
             report += "\n\nFailed!"
         sys.stderr.write('%s\n' % report)
-        if exitCode != 0:
-            exit_with_cleanups(exitCode)
+    if exitCode != 0:
+        exit_with_cleanups(exitCode)
     return out
 
 def main():
@@ -127,9 +127,9 @@ def main():
         print_and_exit('fewer than 2 inputs provided')
     archives = [find_and_diagnose_missing(ar, args.search_paths)
                 for ar in args.archives]
-    print ('Merging archives: %s' % archives)
+    print(f'Merging archives: {archives}')
     if not os.path.exists(os.path.dirname(args.output)):
-        print_and_exit("output path doesn't exist: '%s'" % args.output)
+        print_and_exit(f"output path doesn't exist: '{args.output}'")
 
     global temp_directory_root
     temp_directory_root = tempfile.mkdtemp('.libcxx.merge.archives')
